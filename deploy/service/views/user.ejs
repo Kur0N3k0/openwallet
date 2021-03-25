@@ -1,0 +1,213 @@
+<html>
+    <head>
+        <title>Upbit wallet watchdog</title>
+        <link rel="preconnect" href="https://fonts.gstatic.com">
+        <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@500&family=Ubuntu:wght@500&display=swap" rel="stylesheet">
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-eOJMYsd53ii+scO/bJGFsiCZc+5NDVN2yr8+0RDqr0Ql0h+rP48ckxlpbzKgwra6" crossorigin="anonymous">
+        <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/3.1.3/socket.io.js" integrity="sha512-2RDFHqfLZW8IhPRvQYmK9bTLfj/hddxGXQAred2wNZGkrKQkLGj8RCkXfRJPHlDerdHHIzTFaahq4s/P4V6Qig==" crossorigin="anonymous"></script>
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/js/bootstrap.bundle.min.js" integrity="sha384-JEW9xMcG8R+pH31jmWH6WWP0WintQrMb4s7ZOdauHnUtxwoG2vI5DkLtS3qm9Ekf" crossorigin="anonymous"></script>
+    </head>
+    <style>
+        body {
+            background-color: #313235;
+            color: white;
+            font-family: 'Raleway', sans-serif;
+            font-family: 'Ubuntu', sans-serif;
+        }
+        .currency {
+            font-size: 40px;
+        }
+
+        #snackbar {
+            visibility: hidden;
+            min-width: auto0px;
+            margin-left: -1autopx;
+            background-color: #313235;
+            color: #fff;
+            text-align: center;
+            border-radius: 2px;
+            padding: 16px;
+            position: fixed;
+            z-index: 1;
+            left: 50%;
+            bottom: 30px;
+        }
+
+        #snackbar.show {
+            visibility: visible;
+            
+            -webkit-animation: fadein 0.5s, fadeout 0.5s 2.5s;
+            animation: fadein 0.5s, fadeout 0.5s 2.5s;
+        }
+
+
+        @-webkit-keyframes fadein {
+            from {bottom: 0; opacity: 0;}
+            to {bottom: 30px; opacity: 1;}
+        }
+
+        @keyframes fadein {
+            from {bottom: 0; opacity: 0;}
+            to {bottom: 30px; opacity: 1;}
+        }
+
+        @-webkit-keyframes fadeout {
+            from {bottom: 30px; opacity: 1;}
+            to {bottom: 0; opacity: 0;}
+        }
+
+        @keyframes fadeout {
+            from {bottom: 30px; opacity: 1;}
+            to {bottom: 0; opacity: 0;}
+        }
+
+        .footer {
+            position: fixed;
+            left: 0;
+            bottom: 0;
+            width: 100%;
+            background-color: #28292d;
+            color: white;
+            text-align: center;
+        }
+
+        .footer > .footer-item {
+            display: inline-block;
+            padding: 10px;
+        }
+
+        .footer > .footer-item:hover {
+            background-color: #222;
+        }
+
+        .footer > .footer-item > a {
+            text-decoration: none;
+            padding: 10px;
+            color: white;
+        }
+
+        .red {
+            color: #d60000;
+        }
+        .blue {
+            color: #0051c7;
+        }
+    </style>
+    <body>
+        <div class="container h-100">
+            <div class="row h-100 justify-content-center align-items-center">
+                <div class="col w-25 currency_table">
+                    <div class="row">
+                        <%= user.nick %>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </body>
+    <script>
+        $(() => {
+            var wallet = {}
+
+            const socket = io()
+            socket.on('wallet', (cwallet) => {
+                wallet = {}
+                cwallet = cwallet.filter(item => item.currency != "KRW")
+                cwallet.forEach((item) => {
+                    wallet[item.currency] = {
+                        avg_buy_price: item.avg_buy_price,
+                        balance: parseFloat(item.balance) + parseFloat(item.locked)
+                    }
+                })
+                console.log(Object.keys(wallet))
+                socket.emit('quotation', Object.keys(wallet))
+
+                $("div[class*=currency-]").map((_, item) => {
+                    flag = false
+                    Object.keys(wallet).map((key) => {
+                        if($(item).hasClass(`currency-${key}`)) {
+                            flag = true
+                        }
+                    })
+                    if(!flag)
+                        $(item).remove()
+                })
+            })
+            socket.on('message', (tick) => {
+                var code = tick.code.substr(4)
+                var price = tick.trade_price
+
+                if(wallet[code] === undefined)
+                    return
+
+                var startPrice = wallet[code].avg_buy_price * wallet[code].balance
+                var afterPrice = price * wallet[code].balance
+
+                var profit = Math.round(afterPrice - startPrice)
+                var percentage = afterPrice > startPrice ? (afterPrice / startPrice) * 100 - 100 : -(1 - afterPrice / startPrice) * 100
+                percentage = percentage.toFixed(2)
+
+                if(percentage > 0) {
+                    color = "red"
+                } else {
+                    color = "blue"
+                }
+
+                if($(`.currency-${code}`).length !== 0) {
+                    $(`.currency-${code}`).html(`
+                    <div class="row">
+                        <div class="col w-25 text-end">
+                            <span class="code">${code}</span>
+                        </div>
+                        <div class="col w-25 text-end">
+                            <span class="profit">${profit}</span>
+                        </div>
+                        <div class="col w-25 text-start">
+                            <span class="${color}">(${percentage}%)</span>
+                        </div>
+                    </div>
+                    `)
+                } else {
+                    if($(".donation").length !== 0) {
+                        $(".donation").remove()
+                    }
+
+                    $(".currency_table").append(`
+                    <div class="row currency currency-${code}">
+                        <div class="row">
+                            <div class="col w-25 text-end">
+                                <span class="code">${code}</span>
+                            </div>
+                            <div class="col w-25 text-end">
+                                <span class="profit">${profit}</span>
+                            </div>
+                            <div class="col w-25 text-start">
+                                <span class="${color}">(${percentage}%)</span>
+                            </div>
+                        </div>
+                    </div>
+                    `)
+
+                    $(".currency_table").append(`
+                    <div class="row donation">
+                        <div class="text-center">
+                            <img src="/static/images/BTC.svg" width="32" height="32"> 39Fsbw3dXUbuXyQXdc6oM7z5SvvAkkRcwf
+                        </div>
+                        <div class="text-center">
+                            <img src="/static/images/MBL.png" widht="32" height="32"> ANXZTXH7rV94rAC3yYmNs6zYeFzTHaKsFT
+                        </div>
+                    </div>
+                    `)
+                }
+            })
+            
+            setInterval(() => {
+                socket.emit('wallet', {
+                    nick:"<%= user.nick %>",
+                    access_key: "<%= user.access_key %>",
+                    secret_key: "<%= user.secret_key %>"
+                })
+            }, 1000)
+        })
+    </script>
+</html>

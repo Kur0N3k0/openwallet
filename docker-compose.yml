@@ -1,0 +1,44 @@
+version: '3.3'
+
+services:
+  service:
+    image: openwallet-service
+    container_name: openwallet-service
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      UPBIT_OPEN_API_SERVER_URL: https://api.upbit.com
+      MONGO_URI: mongodb://openwallet-db/openwallet
+    volumes:
+      - ./deploy/service:/app
+    ports:
+      - 1122:3000
+    expose:
+      - 1122
+  
+  quotation:
+    image: upbit-quotation
+    container_name: upbit-quotation
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      UPBIT_OPEN_API_SERVER_URL: https://api.upbit.com
+      UPBIT_OPEN_API_SERVER_WSS: wss://api.upbit.com/websocket/v1
+    volumes:
+      - ./deploy/quotation:/app
+    expose:
+      - 3000
+  
+  cache:
+    image: redis:latest
+    container_name: openwallet-redis
+    expose:
+      - 6379
+  
+  openwallet-db:
+    image: mongo:latest
+    container_name: openwallet-db
+    expose:
+      - 27017
