@@ -13,9 +13,9 @@ services:
     volumes:
       - ./deploy/service:/app
     ports:
-      - 1122:3000
+      - 8888:3000
     expose:
-      - 1122
+      - 8888
   
   quotation:
     image: upbit-quotation

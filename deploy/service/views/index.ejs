@@ -127,7 +127,8 @@
                     </div>
                     <div class="row">
                         <div class="col text-center">
-                            <input type="button" class="btn btn-dark" value="추가하기">
+                            <input type="button" class="btn btn-dark" onclick="login()" value="로그인">
+                            <input type="button" class="btn btn-dark" onclick="remove()" value="로그아웃">
                         </div>
                     </div>
                     <div class="row">
@@ -140,6 +141,47 @@
         </div>
     </body>
     <script>
+        function login() {
+            $.ajax({
+                method: "POST",
+                url: "/setup",
+                contentType: "application/json",
+                dataType: "json",
+                data: JSON.stringify({
+                    nick: $("#nick").val(),
+                    access_key: $("#access_key").val(),
+                    secret_key: $("#secret_key").val()
+                }),
+                success: (data) => {
+                    if(data.error) {
+                        alert("에러가 발생했습니다.")
+                        return
+                    }
+                    location = "/user/" + $("#nick").val()
+                }
+            })
+        }
+
+        function remove() {
+            $.ajax({
+                method: "POST",
+                url: "/remove",
+                contentType: "application/json",
+                dataType: "json",
+                data: JSON.stringify({
+                    access_key: $("#access_key").val(),
+                    secret_key: $("#secret_key").val()
+                }),
+                success: (data) => {
+                    if(data.error) {
+                        alert("에러가 발생했습니다.")
+                        return
+                    }
+                    alert("로그아웃되었습니다.")
+                }
+            })
+        }
+
         $(() => {
             function inputcheck() {
                 return $("#nick").val() && $("#access_key").val() && $("#secret_key").val()
@@ -152,24 +194,7 @@
                         return
                     }
 
-                    $.ajax({
-                        method: "POST",
-                        url: "/setup",
-                        contentType: "application/json",
-                        dataType: "json",
-                        data: JSON.stringify({
-                            nick: $("#nick").val(),
-                            access_key: $("#access_key").val(),
-                            secret_key: $("#secret_key").val()
-                        }),
-                        success: (data) => {
-                            if(data.error) {
-                                alert("에러가 발생했습니다.")
-                                return
-                            }
-                            location = "/user/" + $("#nick").val()
-                        }
-                    })
+                    login()
                 }
             })
         })

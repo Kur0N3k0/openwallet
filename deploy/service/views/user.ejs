@@ -7,6 +7,7 @@
         <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/3.1.3/socket.io.js" integrity="sha512-2RDFHqfLZW8IhPRvQYmK9bTLfj/hddxGXQAred2wNZGkrKQkLGj8RCkXfRJPHlDerdHHIzTFaahq4s/P4V6Qig==" crossorigin="anonymous"></script>
         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/js/bootstrap.bundle.min.js" integrity="sha384-JEW9xMcG8R+pH31jmWH6WWP0WintQrMb4s7ZOdauHnUtxwoG2vI5DkLtS3qm9Ekf" crossorigin="anonymous"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/1.4.0/clipboard.min.js" integrity="sha512-iJh0F10blr9SC3d0Ow1ZKHi9kt12NYa+ISlmCdlCdNZzFwjH1JppRTeAnypvUez01HroZhAmP4ro4AvZ/rG0UQ==" crossorigin="anonymous"></script>
     </head>
     <style>
         body {
@@ -98,15 +99,38 @@
         <div class="container h-100">
             <div class="row h-100 justify-content-center align-items-center">
                 <div class="col w-25 currency_table">
-                    <div class="row">
-                        <%= user.nick %>
+                    <div class="row text-center">
+                        <h2><%= user.nick %></h2>
                     </div>
+                </div>
+            </div>
+            <div id="snackbar"></div>
+            <div class="footer">
+                <div class="footer-item">
+                    <a href="#" class="share" data-clipboard-text="http://coin.ltra.cc/user/<%= user.nick %>">공유하기</a>
                 </div>
             </div>
         </div>
     </body>
     <script>
         $(() => {
+            var clipboard = new Clipboard('.share')
+            clipboard.on('success', (e) => {
+                Snackbar("복사 완료")
+                console.log(e)
+            })
+            clipboard.on('error', (e) => {
+                Snackbar("복사 실패")
+                console.log(e);
+            })
+
+            function Snackbar(msg) {
+                var x = document.getElementById("snackbar");
+                x.className = "show";
+                x.textContent = msg;
+                setTimeout(function () { x.className = x.className.replace("show", ""); }, 3000);
+            }
+
             var wallet = {}
 
             const socket = io()
@@ -119,7 +143,7 @@
                         balance: parseFloat(item.balance) + parseFloat(item.locked)
                     }
                 })
-                console.log(Object.keys(wallet))
+                console.log(wallet)
                 socket.emit('quotation', Object.keys(wallet))
 
                 $("div[class*=currency-]").map((_, item) => {
@@ -133,6 +157,7 @@
                         $(item).remove()
                 })
             })
+
             socket.on('message', (tick) => {
                 var code = tick.code.substr(4)
                 var price = tick.trade_price
@@ -200,12 +225,15 @@
                     `)
                 }
             })
+
+            socket.on('error', () => {
+                alert("올바른 Access/Secret key를 입력해주세요.")
+                remove()
+            })
             
             setInterval(() => {
                 socket.emit('wallet', {
-                    nick:"<%= user.nick %>",
-                    access_key: "<%= user.access_key %>",
-                    secret_key: "<%= user.secret_key %>"
+                    nick:"<%= user.nick %>"
                 })
             }, 1000)
         })

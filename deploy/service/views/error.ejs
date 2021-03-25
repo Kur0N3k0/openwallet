@@ -99,30 +99,11 @@
             <div class="row h-100 justify-content-center align-items-center">
                 <div class="col w-25">
                     <h2><%= msg %></h2>
-                    <input type="button" class="btn btn-dark" value="계정삭제" onclick="remove()">
                 </div>
             </div>
         </div>
     </body>
     <script>
-        function remove() {
-            $.ajax({
-                method: "POST",
-                url: "/remove",
-                contentType: "application/json",
-                dataType: "json",
-                data: JSON.stringify({
-                    access_key: "<%= access_key %>",
-                    secret_key: "<%= secret_key %>"
-                }),
-                success: (data) => {
-                    if(data.error) {
-                        alert("에러가 발생했습니다.")
-                        return
-                    }
-                    location = "/"
-                }
-            })
-        }
+        
     </script>
 </html>
