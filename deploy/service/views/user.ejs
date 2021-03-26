@@ -94,6 +94,33 @@
         .blue {
             color: #0051c7;
         }
+
+        .rainbow {
+            text-align: center;
+            text-decoration: underline;
+            /* font-size: 32px; */
+            /* font-family: monospace; */
+            letter-spacing: 5px;
+        }
+        .rainbow_text_animated {
+            background: linear-gradient(to right, #6666ff, #0099ff , #00ff00, #ff3399, #6666ff);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            animation: rainbow_animation 0.5s ease-in-out infinite;
+            background-size: 400% 100%;
+        }
+
+        @keyframes rainbow_animation {
+            0%,100% {
+                background-position: 0 0;
+            }
+
+            50% {
+                background-position: 100% 0;
+            }
+        }
+
     </style>
     <body>
         <div class="container h-100">
@@ -145,6 +172,8 @@
             socket.on('wallet', (cwallet) => {
                 wallet = {}
                 cwallet = cwallet.filter(item => item.currency != "KRW")
+                // if(Math.floor(Math.random() * 2) % 2)
+                    // cwallet = cwallet.filter(item => item.currency != "DOGE")
                 cwallet.forEach((item) => {
                     wallet[item.currency] = {
                         avg_buy_price: item.avg_buy_price,
@@ -157,7 +186,7 @@
                     {
                         "type": "ticker",
                         "codes": Object.keys(wallet).map((item) => "KRW-" + item),
-                        // "isOnlySnapshot":true
+                        "isOnlySnapshot":true
                     }
                 ]))
 
