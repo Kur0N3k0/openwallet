@@ -79,14 +79,23 @@ app.post("/setup", (req, res) => {
         typeof req.body.secret_key === "string"
     ){
         const ip = getIP(req)
-        User.create({
-            nick: req.body.nick,
-            access_key: req.body.access_key,
-            secret_key: req.body.secret_key,
-            ip: ip
+        getWallet(req.body.access_key, req.body.secret_key)
+        .then((data) => {
+            User.create({
+                nick: req.body.nick,
+                access_key: req.body.access_key,
+                secret_key: req.body.secret_key,
+                ip: ip
+            })
+            .then(_ => {
+                cache.setex(`wallet_${req.body.nick}`, 3, JSON.stringify(data))
+                res.json({ error: 0 })
+            })
+            .catch(_ => res.json({ error: -1 }))
         })
-        .then(_ => res.json({ error: 0 }))
-        .catch(_ => res.json({ error: -1 }))
+        .catch((err) => {
+            res.json({ error: -5 })
+        })
     }
     else res.json({ error: -2 })
 })
@@ -105,16 +114,6 @@ app.post("/remove", (req, res) => {
 })
 
 io.sockets.on('connection', (client) => {
-    client.on('quotation', (markets) => {
-        markets.forEach((market) => {
-            cache.get(`KRW-${market}`, (err, data) => {
-                if(data !== null) {
-                    client.emit('message', JSON.parse(data))
-                }
-            })
-        })
-    })
-
     client.on('wallet', (cred) => {
         if(cred === undefined || cred.nick === undefined)
             return

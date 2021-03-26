@@ -1,6 +1,6 @@
 <html>
     <head>
-        <title>Upbit wallet watchdog</title>
+        <title><%= user.nick %>'s Wallet</title>
         <link rel="preconnect" href="https://fonts.gstatic.com">
         <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@500&family=Ubuntu:wght@500&display=swap" rel="stylesheet">
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-eOJMYsd53ii+scO/bJGFsiCZc+5NDVN2yr8+0RDqr0Ql0h+rP48ckxlpbzKgwra6" crossorigin="anonymous">
@@ -133,6 +133,14 @@
 
             var wallet = {}
 
+            function uuidv4() {
+                return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
+                    (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
+                )
+            }
+
+            const upbit = new WebSocket("wss://api.upbit.com/websocket/v1")
+
             const socket = io()
             socket.on('wallet', (cwallet) => {
                 wallet = {}
@@ -140,11 +148,18 @@
                 cwallet.forEach((item) => {
                     wallet[item.currency] = {
                         avg_buy_price: item.avg_buy_price,
-                        balance: parseFloat(item.balance) + parseFloat(item.locked)
+                        balance: parseFloat(item.balance) + parseFloat(item.locked),
                     }
                 })
-                console.log(wallet)
-                socket.emit('quotation', Object.keys(wallet))
+                // socket.emit('quotation', Object.keys(wallet))
+                upbit.send(JSON.stringify([
+                    { "ticket": uuidv4() },
+                    {
+                        "type": "ticker",
+                        "codes": Object.keys(wallet).map((item) => "KRW-" + item),
+                        // "isOnlySnapshot":true
+                    }
+                ]))
 
                 $("div[class*=currency-]").map((_, item) => {
                     flag = false
@@ -158,47 +173,31 @@
                 })
             })
 
-            socket.on('message', (tick) => {
-                var code = tick.code.substr(4)
-                var price = tick.trade_price
+            upbit.onmessage = (evt) => {
+                const reader = new FileReader()
+                reader.onload = () => {
+                    const tick = JSON.parse(reader.result)
+                    var code = tick.code.substr(4)
+                    var price = tick.trade_price
 
-                if(wallet[code] === undefined)
-                    return
+                    if(wallet[code] === undefined)
+                        return
 
-                var startPrice = wallet[code].avg_buy_price * wallet[code].balance
-                var afterPrice = price * wallet[code].balance
+                    var startPrice = wallet[code].avg_buy_price * wallet[code].balance
+                    var afterPrice = price * wallet[code].balance
 
-                var profit = Math.round(afterPrice - startPrice)
-                var percentage = afterPrice > startPrice ? (afterPrice / startPrice) * 100 - 100 : -(1 - afterPrice / startPrice) * 100
-                percentage = percentage.toFixed(2)
+                    var profit = Math.round(afterPrice - startPrice)
+                    var percentage = afterPrice > startPrice ? (afterPrice / startPrice) * 100 - 100 : -(1 - afterPrice / startPrice) * 100
+                    percentage = percentage.toFixed(2)
 
-                if(percentage > 0) {
-                    color = "red"
-                } else {
-                    color = "blue"
-                }
-
-                if($(`.currency-${code}`).length !== 0) {
-                    $(`.currency-${code}`).html(`
-                    <div class="row">
-                        <div class="col w-25 text-end">
-                            <span class="code">${code}</span>
-                        </div>
-                        <div class="col w-25 text-end">
-                            <span class="profit">${profit}</span>
-                        </div>
-                        <div class="col w-25 text-start">
-                            <span class="${color}">(${percentage}%)</span>
-                        </div>
-                    </div>
-                    `)
-                } else {
-                    if($(".donation").length !== 0) {
-                        $(".donation").remove()
+                    if(percentage > 0) {
+                        color = "red"
+                    } else {
+                        color = "blue"
                     }
 
-                    $(".currency_table").append(`
-                    <div class="row currency currency-${code}">
+                    if($(`.currency-${code}`).length !== 0) {
+                        $(`.currency-${code}`).html(`
                         <div class="row">
                             <div class="col w-25 text-end">
                                 <span class="code">${code}</span>
@@ -210,21 +209,63 @@
                                 <span class="${color}">(${percentage}%)</span>
                             </div>
                         </div>
-                    </div>
-                    `)
+                        `)
+                    } else {
+                        if($(".donation").length !== 0) {
+                            $(".donation").remove()
+                        }
 
-                    $(".currency_table").append(`
-                    <div class="row donation">
-                        <div class="text-center">
-                            <img src="/static/images/BTC.svg" width="32" height="32"> 39Fsbw3dXUbuXyQXdc6oM7z5SvvAkkRcwf
+                        $(".currency_table").append(`
+                        <div class="row currency currency-${code}">
+                            <div class="row">
+                                <div class="col w-25 text-end">
+                                    <span class="code">${code}</span>
+                                </div>
+                                <div class="col w-25 text-end">
+                                    <span class="profit">${profit}</span>
+                                </div>
+                                <div class="col w-25 text-start">
+                                    <span class="${color}">(${percentage}%)</span>
+                                </div>
+                            </div>
                         </div>
-                        <div class="text-center">
-                            <img src="/static/images/MBL.png" widht="32" height="32"> ANXZTXH7rV94rAC3yYmNs6zYeFzTHaKsFT
+                        `)
+
+                        // $(".currency_table").append(`
+                        // <div class="row donation align-items-center">
+                        //     <div class="col w-25 text-end">
+                        //         <h3>Donation</h3>
+                        //     </div>
+                        //     <div class="col w-25">
+                        //         <div class="text-end">
+                        //             <img src="/static/images/BTC.svg" width="32" height="32"> 39Fsbw3dXUbuXyQXdc6oM7z5SvvAkkRcwf
+                        //         </div>
+                        //         <div class="text-end">
+                        //             <img src="/static/images/MBL.png" widht="32" height="32"> ANXZTXH7rV94rAC3yYmNs6zYeFzTHaKsFT
+                        //         </div>
+                        //     </div>
+                        //     <div class="col w-25">
+                        //     </div>
+                        // </div>
+                        // `)
+                        $(".currency_table").append(`
+                        <div class="row donation" style="padding-top:50px;">
+                            <div class="text-center">
+                                <h3>Donation</h3>
+                            </div>
+                            <div class="text-center">
+                                <img src="/static/images/BTC.svg" width="32" height="32"> 39Fsbw3dXUbuXyQXdc6oM7z5SvvAkkRcwf
+                            </div>
+                            <div class="text-center">
+                                <img src="/static/images/MBL.png" widht="32" height="32"> ANXZTXH7rV94rAC3yYmNs6zYeFzTHaKsFT
+                            </div>
                         </div>
-                    </div>
-                    `)
+                        `)
+                    }
                 }
-            })
+                reader.readAsText(evt.data)
+            // socket.on('message', (tick) => {
+            }
 
             socket.on('error', () => {
                 alert("올바른 Access/Secret key를 입력해주세요.")
