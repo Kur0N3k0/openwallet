@@ -142,8 +142,10 @@ app.get("/ranking", (req, res) => {
             promises = wallets.map((info) => {
                 return new Promise(async (resolve) => {
                     let filtered = info.wallet.filter(item => item.currency != "KRW")
-                    let total_profit = 0.0
-                    const prom = filtered.map((item) => {
+                    let krw = info.wallet.filter(item => item.currency == "KRW")[0]
+                    let KRWBalance = parseFloat(krw.balance) + parseFloat(krw.locked)
+
+                    let prom = filtered.map((item) => {
                         return new Promise(resolve => {
                                 cache.get("KRW-" + item.currency, (err, data) => {
                                     if(data == null)
@@ -157,14 +159,22 @@ app.get("/ranking", (req, res) => {
                                     let afterPrice = balance * data.trade_price
                     
                                     var percentage = afterPrice > startPrice ? (afterPrice / startPrice) * 100 - 100 : -(1 - afterPrice / startPrice) * 100
-                                    resolve(percentage)
+                                    resolve({ startPrice, afterPrice, percentage })
                                 })
                             })
                         })
 
-                    let percents = await Promise.all(prom)
-                    percents.forEach(item => total_profit += item)
-                    resolve({ nick: info.nick, total_profit: parseFloat(total_profit.toFixed(2)) })
+                    let result = await Promise.all(prom)
+                    let startBalance = KRWBalance
+                    let afterBalance = KRWBalance
+
+                    prom = result.forEach((item) => {
+                        startBalance += item.startPrice
+                        afterBalance += item.afterPrice
+                    })
+
+                    var percentage = afterBalance > startBalance ? (afterBalance / startBalance) * 100 - 100 : -(1 - afterBalance / startBalance) * 100
+                    resolve({ nick: info.nick, total_profit: parseFloat(percentage.toFixed(2)) })
                 })
             })
 
@@ -178,9 +188,9 @@ app.get("/ranking", (req, res) => {
                 
                 if(a.total_profit == b.total_profit) {
                     if(a.nick < b.nick)
-                        return 1
-                    if(a.nick > b.nick)
                         return -1
+                    if(a.nick > b.nick)
+                        return 1
                     return 0
                 }
                 return 0

@@ -182,10 +182,10 @@
             const socket = io()
             socket.on('wallet', (cwallet) => {
                 wallet = {}
-                cwallet = cwallet.filter(item => item.currency != "KRW")
+                ccwallet = cwallet.filter(item => item.currency != "KRW")
                 // if(Math.floor(Math.random() * 2) % 2)
                     // cwallet = cwallet.filter(item => item.currency != "DOGE")
-                cwallet.forEach((item) => {
+                    ccwallet.forEach((item) => {
                     wallet[item.currency] = {
                         avg_buy_price: item.avg_buy_price,
                         balance: parseFloat(item.balance) + parseFloat(item.locked),
@@ -211,6 +211,41 @@
                     if(!flag)
                         $(item).remove()
                 })
+
+                const krw = cwallet.filter(item => item.currency == "KRW")[0]
+                console.log(krw)
+                const amount = Math.floor(parseFloat(krw.balance) + parseFloat(krw.locked))
+
+                if($(".KRW").length === 0) {
+                    $(".currency_table").append(`
+                    <div class="row currency KRW">
+                        <div class="row">
+                            <div class="col w-25 text-end">
+                                <span class="code">KRW</span>
+                            </div>
+                            <div class="col w-25 text-end">
+                                <span class="profit">${amount}</span>
+                            </div>
+                            <div class="col w-25 text-start">
+                            </div>
+                        </div>
+                    </div>
+                    `)
+                } else {
+                    $(".KRW").html(`
+                    <div class="row">
+                        <div class="col w-25 text-end">
+                            <span class="code">KRW</span>
+                        </div>
+                        <div class="col w-25 text-end">
+                            <span class="profit">${amount}</span>
+                        </div>
+                        <div class="col w-25 text-start">
+                        </div>
+                    </div>
+                    `)
+                }
+                
             })
 
             upbit.onmessage = (evt) => {
