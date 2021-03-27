@@ -1,137 +1,23 @@
 <html>
     <head>
-        <title><%= user.nick %>'s Wallet</title>
+        <title><%= user.nick %>'s Wallet - coin.ltra.cc</title>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta property="og:title" content="Wallet - coin.ltra.cc"/>
+        <meta property="og:url" content="https://coin.ltra.cc/user/<%= user.nick %>"/>
+        <meta property="og:image" content="/static/images/banner.png"/>
+        <meta property="og:description" content="<%= user.nick %>'s Wallet"/>
         <link rel="preconnect" href="https://fonts.gstatic.com">
         <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@500&family=Ubuntu:wght@500&display=swap" rel="stylesheet">
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-eOJMYsd53ii+scO/bJGFsiCZc+5NDVN2yr8+0RDqr0Ql0h+rP48ckxlpbzKgwra6" crossorigin="anonymous">
+        <link href="/static/css/main.css" rel="stylesheet">
         <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/3.1.3/socket.io.js" integrity="sha512-2RDFHqfLZW8IhPRvQYmK9bTLfj/hddxGXQAred2wNZGkrKQkLGj8RCkXfRJPHlDerdHHIzTFaahq4s/P4V6Qig==" crossorigin="anonymous"></script>
         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/js/bootstrap.bundle.min.js" integrity="sha384-JEW9xMcG8R+pH31jmWH6WWP0WintQrMb4s7ZOdauHnUtxwoG2vI5DkLtS3qm9Ekf" crossorigin="anonymous"></script>
         <script src="https://cdn.jsdelivr.net/npm/clipboard@2.0.8/dist/clipboard.min.js"></script>
     </head>
-    <style>
-        body {
-            background-color: #313235;
-            color: white;
-            font-family: 'Raleway', sans-serif;
-            font-family: 'Ubuntu', sans-serif;
-        }
-        .currency {
-            font-size: 40px;
-        }
-
-        #snackbar {
-            visibility: hidden;
-            min-width: 250px;
-            margin-left: -125px;
-            background-color: #313235;
-            color: #fff;
-            text-align: center;
-            border-radius: 2px;
-            padding: 16px;
-            position: fixed;
-            z-index: 1;
-            left: 50%;
-            bottom: 30px;
-        }
-
-        #snackbar.show {
-            visibility: visible;
-            
-            -webkit-animation: fadein 0.5s, fadeout 0.5s 2.5s;
-            animation: fadein 0.5s, fadeout 0.5s 2.5s;
-        }
-
-
-        #snackbar.show {
-            visibility: visible;
-            
-            -webkit-animation: fadein 0.5s, fadeout 0.5s 2.5s;
-            animation: fadein 0.5s, fadeout 0.5s 2.5s;
-        }
-
-
-        @-webkit-keyframes fadein {
-            from {bottom: 0; opacity: 0;}
-            to {bottom: 30px; opacity: 1;}
-        }
-
-        @keyframes fadein {
-            from {bottom: 0; opacity: 0;}
-            to {bottom: 30px; opacity: 1;}
-        }
-
-        @-webkit-keyframes fadeout {
-            from {bottom: 30px; opacity: 1;}
-            to {bottom: 0; opacity: 0;}
-        }
-
-        @keyframes fadeout {
-            from {bottom: 30px; opacity: 1;}
-            to {bottom: 0; opacity: 0;}
-        }
-
-        .footer {
-            position: fixed;
-            left: 0;
-            bottom: 0;
-            width: 100%;
-            background-color: #28292d;
-            color: white;
-            text-align: center;
-        }
-
-        .footer > .footer-item {
-            display: inline-block;
-            padding: 10px;
-        }
-
-        .footer > .footer-item:hover {
-            background-color: #222;
-        }
-
-        .footer > .footer-item > a {
-            text-decoration: none;
-            padding: 10px;
-            color: white;
-        }
-
-        .red {
-            color: #d60000;
-        }
-        .blue {
-            color: #0051c7;
-        }
-
-        .rainbow {
-            text-align: center;
-            text-decoration: underline;
-            /* font-size: 32px; */
-            /* font-family: monospace; */
-            letter-spacing: 5px;
-        }
-        .rainbow_text_animated {
-            background: linear-gradient(to right, #6666ff, #0099ff , #00ff00, #ff3399, #6666ff);
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
-            animation: rainbow_animation 0.5s ease-in-out infinite;
-            background-size: 400% 100%;
-        }
-
-        @keyframes rainbow_animation {
-            0%,100% {
-                background-position: 0 0;
-            }
-
-            50% {
-                background-position: 100% 0;
-            }
-        }
-
-    </style>
     <body>
-        <div class="container h-100">
+        <div class="container content">
             <div class="row h-100 justify-content-center align-items-center">
                 <div class="col w-25 currency_table">
                     <div class="row text-center">
@@ -177,8 +63,26 @@
                 )
             }
 
-            const upbit = new WebSocket("wss://api.upbit.com/websocket/v1")
+            const upbitExch = new WebSocket("wss://api.upbit.com/websocket/v1")
+            let Exchange = {}
+            upbitExch.onopen = () => {
+                upbitExch.send(JSON.stringify([{ "ticket": uuidv4() },
+                    {
+                        "type": "ticker",
+                        "codes": [ "KRW-BTC" ],
+                    }]))
+            }
+            upbitExch.onmessage = (evt) => {
+                const reader = new FileReader()
+                reader.onload = () => {
+                    const tick = JSON.parse(reader.result)
+                    Exchange[tick.code.substr(tick.code.indexOf("-")+1)] = tick.trade_price
+                }
+                reader.readAsText(evt.data)
+            }
 
+            const upbit = new WebSocket("wss://api.upbit.com/websocket/v1")
+            
             const socket = io()
             socket.on('wallet', (cwallet) => {
                 wallet = {}
@@ -191,13 +95,11 @@
                         balance: parseFloat(item.balance) + parseFloat(item.locked),
                     }
                 })
-                // socket.emit('quotation', Object.keys(wallet))
                 upbit.send(JSON.stringify([
                     { "ticket": uuidv4() },
                     {
                         "type": "ticker",
-                        "codes": Object.keys(wallet).map((item) => "KRW-" + item),
-                        // "isOnlySnapshot":true
+                        "codes": Object.keys(wallet).map((item) => "KRW-" + item)
                     }
                 ]))
 
@@ -213,7 +115,6 @@
                 })
 
                 const krw = cwallet.filter(item => item.currency == "KRW")[0]
-                console.log(krw)
                 const amount = Math.floor(parseFloat(krw.balance) + parseFloat(krw.locked))
 
                 if($(".KRW").length === 0) {
@@ -252,11 +153,15 @@
                 const reader = new FileReader()
                 reader.onload = () => {
                     const tick = JSON.parse(reader.result)
-                    var code = tick.code.substr(4)
+                    var exch = tick.code.substr(0, tick.code.indexOf("-"))
+                    var code = tick.code.substr(tick.code.indexOf("-")+1)
                     var price = tick.trade_price
 
                     if(wallet[code] === undefined)
                         return
+
+                    if(exch === "BTC")
+                        price *= Exchange["BTC"]
 
                     var startPrice = wallet[code].avg_buy_price * wallet[code].balance
                     var afterPrice = price * wallet[code].balance
@@ -306,23 +211,6 @@
                         </div>
                         `)
 
-                        // $(".currency_table").append(`
-                        // <div class="row donation align-items-center">
-                        //     <div class="col w-25 text-end">
-                        //         <h3>Donation</h3>
-                        //     </div>
-                        //     <div class="col w-25">
-                        //         <div class="text-end">
-                        //             <img src="/static/images/BTC.svg" width="32" height="32"> 39Fsbw3dXUbuXyQXdc6oM7z5SvvAkkRcwf
-                        //         </div>
-                        //         <div class="text-end">
-                        //             <img src="/static/images/MBL.png" widht="32" height="32"> ANXZTXH7rV94rAC3yYmNs6zYeFzTHaKsFT
-                        //         </div>
-                        //     </div>
-                        //     <div class="col w-25">
-                        //     </div>
-                        // </div>
-                        // `)
                         $(".currency_table").append(`
                         <div class="row donation" style="padding-top:50px;">
                             <div class="text-center">
@@ -339,7 +227,6 @@
                     }
                 }
                 reader.readAsText(evt.data)
-            // socket.on('message', (tick) => {
             }
 
             socket.on('error', () => {
