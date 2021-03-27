@@ -113,6 +113,85 @@ app.post("/remove", (req, res) => {
     else res.json({ error: -4 })
 })
 
+app.get("/ranking", (req, res) => {
+    cache.get("ranking", (err, data) => {
+        if(data !== null) {
+            return res.render("ranking", { users: JSON.parse(data) })
+        }
+
+        let wallets = []
+        User.find({}).exec(async (err, users) => {
+            if(users === null) {
+                res.json({ error: -6 })
+                return
+            }
+
+            let promises = users.map(async (user) => {
+                const { nick, access_key, secret_key } = user
+                return getWallet(access_key, secret_key)
+                    .then((wallet) => {
+                        wallets.push({ nick, wallet })
+                    })
+                    .catch((err) => {
+                        console.log(err)
+                    })
+            })
+
+            await Promise.all(promises)
+
+            promises = wallets.map((info) => {
+                return new Promise(async (resolve) => {
+                    let filtered = info.wallet.filter(item => item.currency != "KRW")
+                    let total_profit = 0.0
+                    const prom = filtered.map((item) => {
+                        return new Promise(resolve => {
+                                cache.get("KRW-" + item.currency, (err, data) => {
+                                    if(data == null)
+                                        return
+                                    
+                                    data = JSON.parse(data)
+                                    let avg_buy_price = parseFloat(item.avg_buy_price)
+                                    let balance = parseFloat(item.balance) + parseFloat(item.locked)
+                    
+                                    let startPrice = balance * avg_buy_price
+                                    let afterPrice = balance * data.trade_price
+                    
+                                    var percentage = afterPrice > startPrice ? (afterPrice / startPrice) * 100 - 100 : -(1 - afterPrice / startPrice) * 100
+                                    resolve(percentage)
+                                })
+                            })
+                        })
+
+                    let percents = await Promise.all(prom)
+                    percents.forEach(item => total_profit += item)
+                    resolve({ nick: info.nick, total_profit: parseFloat(total_profit.toFixed(2)) })
+                })
+            })
+
+            let result = await Promise.all(promises)
+        
+            result.sort((a, b) => {
+                if(a.total_profit < b.total_profit)
+                    return 1
+                if(a.total_profit > b.total_profit)
+                    return -1
+                
+                if(a.total_profit == b.total_profit) {
+                    if(a.nick < b.nick)
+                        return 1
+                    if(a.nick > b.nick)
+                        return -1
+                    return 0
+                }
+                return 0
+            })
+
+            cache.setex("ranking", 60 * 30, JSON.stringify(result))
+            res.render("ranking", { users: result })
+        })
+    })
+})
+
 io.sockets.on('connection', (client) => {
     client.on('wallet', (cred) => {
         if(cred === undefined || cred.nick === undefined)

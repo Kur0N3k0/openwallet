@@ -16,7 +16,21 @@ services:
       - 127.0.0.1:8888:3000
     expose:
       - 8888
-  
+
+  quotation:
+    image: upbit-quotation
+    container_name: upbit-quotation
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      UPBIT_OPEN_API_SERVER_URL: https://api.upbit.com
+      UPBIT_OPEN_API_SERVER_WSS: wss://api.upbit.com/websocket/v1
+    volumes:
+      - ./deploy/quotation:/app
+    expose:
+      - 3000
+
   cache:
     image: redis:latest
     container_name: openwallet-redis
