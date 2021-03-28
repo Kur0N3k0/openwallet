@@ -11,6 +11,7 @@ const cache = redis.createClient({ host: "openwallet-redis", port: 6379 })
 const mongoose = require('mongoose')
 
 const User = require('./models/user')
+const Settlement = require('./models/settlement')
 
 const server_url = process.env.UPBIT_OPEN_API_SERVER_URL || 'https://api.upbit.com'
 const mongo_uri = process.env.MONGO_URI || 'mongodb://localhost/openwallet'
@@ -248,6 +249,33 @@ app.get("/ranking", (req, res) => {
             res.render("ranking", { users: result })
         })
     })
+})
+
+app.get("/settlement/:user", (req, res) => {
+    const nick = req.params.user
+
+    User.findOne({ nick: nick }).exec((err, result) => {
+        if(result !== null) {
+            res.render("settlement", { user: result })
+        } else {
+            res.render("error", { msg: "user not found", access_key: "", secret_key: "" })
+        }
+    })
+})
+
+app.post("/settlement/:user", (req, res) => {
+    const user = req.params.user
+    const limit = parseInt(req.body.limit)
+    const date = new Date(req.body.date)
+    date.setHours(0)
+
+    Settlement.find({ nick: user, date: { $lte: date } })
+        .limit(limit)
+        .sort({ date: 'desc' })
+        .then((result) => res.json(result) )
+        .catch(err => {
+            res.json({ error: -7 })
+        })
 })
 
 io.sockets.on('connection', (client) => {

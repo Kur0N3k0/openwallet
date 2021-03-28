@@ -51,7 +51,7 @@ cache.get("KRW-BTC", (err, info) => {
     btc = JSON.parse(info)
 })
 
-let date = new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()+1)
+let date = new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate())
 
 User.find({}).then(async users => {
     let proms = users.map((user) => {
