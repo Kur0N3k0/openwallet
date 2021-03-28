@@ -147,10 +147,9 @@ app.get("/ranking", (req, res) => {
 
                     let prom = filtered.map((item) => {
                         return new Promise(resolve => {
-                            let flag = true
                             cache.get("KRW-"+item.currency, (err, data) => {
                                 if(data == null) {
-                                    flag = false
+                                    resolve({ currency: item.currency, startPrice: 0, afterPrice: 0 })
                                     return
                                 }
                                 
@@ -162,37 +161,62 @@ app.get("/ranking", (req, res) => {
                                 let startPrice = balance * avg_buy_price
                                 let afterPrice = balance * data.trade_price
                 
-                                var percentage = afterPrice > startPrice ? (afterPrice / startPrice) * 100 - 100 : -(1 - afterPrice / startPrice) * 100
-                                resolve({ startPrice, afterPrice, percentage })
-                            })
-
-                            if(flag) return
-
-                            flag = true
-                            cache.get("BTC-"+item.currency, (err, data) => {
-                                if(data == null) {
-                                    flag = false
-                                    return
-                                }
-                                data = JSON.parse(data)
-
-                                let avg_buy_price = parseFloat(item.avg_buy_price)
-                                let balance = parseFloat(item.balance) + parseFloat(item.locked)
-                
-                                let startPrice = balance * avg_buy_price
-                                let afterPrice = balance * data.trade_price
-                
-                                var percentage = afterPrice > startPrice ? (afterPrice / startPrice) * 100 - 100 : -(1 - afterPrice / startPrice) * 100
-                                resolve({ startPrice, afterPrice, percentage })
+                                resolve({ currency: item.currency, startPrice, afterPrice })
                             })
                         })
                     })
 
                     let result = await Promise.all(prom)
+                    let BTCprice = 0
+
+                    BTCprice = await new Promise(resolve => {
+                        cache.get("KRW-BTC", (err, btc) => {
+                            btc = JSON.parse(btc)
+                            resolve(btc.trade_price)
+                        })
+                    })
+
+                    prom = filtered.map((item) => {
+                        return new Promise(resolve => {
+                            cache.get("BTC-"+item.currency, (err, data) => {
+                                if(data == null) {
+                                    resolve({ currency: item.currency, startPrice: 0, afterPrice: 0 })
+                                    return
+                                }
+                                
+                                data = JSON.parse(data)
+        
+                                result.forEach((x) => {
+                                    if(x.currency == item.currency){
+                                        if(x.startPrice == 0) {
+                                            let avg_buy_price = parseFloat(item.avg_buy_price)
+                                            let balance = parseFloat(item.balance) + parseFloat(item.locked)
+                            
+                                            let startPrice = balance * avg_buy_price
+                                            let afterPrice = balance * data.trade_price * BTCprice
+                            
+                                            resolve({ currency: item.currency, startPrice, afterPrice })
+                                        } else {
+                                            resolve({ currency: item.currency, startPrice: 0, afterPrice: 0 })
+                                        }
+                                    }
+                                })
+
+                            })
+                        })
+                    })
+
+                    let result2 = await Promise.all(prom)
+                    
                     let startBalance = KRWBalance
                     let afterBalance = KRWBalance
 
-                    prom = result.forEach((item) => {
+                    result.forEach((item) => {
+                        startBalance += item.startPrice
+                        afterBalance += item.afterPrice
+                    })
+                    
+                    result2.forEach((item) => {
                         startBalance += item.startPrice
                         afterBalance += item.afterPrice
                     })

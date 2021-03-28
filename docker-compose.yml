@@ -26,6 +26,7 @@ services:
     environment:
       UPBIT_OPEN_API_SERVER_URL: https://api.upbit.com
       UPBIT_OPEN_API_SERVER_WSS: wss://api.upbit.com/websocket/v1
+    restart: always
     volumes:
       - ./deploy/quotation:/app
     expose:

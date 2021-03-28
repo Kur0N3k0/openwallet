@@ -19,31 +19,31 @@
     <body>
         <div class="container h-100">
             <div class="row h-100 justify-content-center align-items-center">
-                <div class="col w-25">
+                <div class="col">
                     <div class="row text-center" style="padding-bottom: 20px;">
                         <span>(*) 랭킹은 30분마다 업데이트됩니다.</span>
                     </div>
                     <div class="row">
-                        <div class="col w-25 text-end">
+                        <div class="col-3 text-end">
                             <h4>#</h4>
                         </div>
-                        <div class="col w-25 text-center">
+                        <div class="col-5 text-center">
                             <h4>닉네임</h4>
                         </div>
-                        <div class="col w-25 text-start">
+                        <div class="col text-start">
                             <h4>수익률</h4>
                         </div>
                     </div>
                     <hr>
                     <% users.forEach((user, idx) => { %>
                     <div class="row">
-                        <div class="col w-25 text-end">
+                        <div class="col-3 text-end">
                             <h4><%= idx + 1 %>등</h4>
                         </div>
-                        <div class="col w-25 text-center">
+                        <div class="col-5 text-center">
                             <h4><%= user.nick %></h4>
                         </div>
-                        <div class="col w-25 text-start">
+                        <div class="col text-start">
                             <h4><%= user.total_profit %> %</h4>
                         </div>
                     </div>

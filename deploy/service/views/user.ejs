@@ -63,16 +63,50 @@
                 )
             }
 
-            const upbitExch = new WebSocket("wss://api.upbit.com/websocket/v1")
+            const options = {method: 'GET'};
+
+            var preferedMarket = {}
+            function setPreferedMarket(markets) {
+                let mkt = {
+                    "BTC": [], "KRW": [], "USDT": []
+                }
+                markets.forEach((market) => {
+                    mktCode = market.market.substr(0, market.market.indexOf("-"))
+                    mktData = market.market.substr(market.market.indexOf("-") + 1)
+                    mkt[mktCode].push(mktData)
+                })
+
+                mkt.KRW.forEach((item) => {
+                    mkt.BTC = mkt.BTC.filter((x) => x !== item)
+                    mkt.USDT = mkt.USDT.filter((x) => x !== item)
+
+                    preferedMarket[item] = "KRW"
+                })
+
+                mkt.BTC.forEach((item) => {
+                    preferedMarket[item] = "BTC"
+                })
+
+                mkt.USDT.forEach((item) => {
+                    preferedMarket[item] = "USDT"
+                })
+            }
+
+            fetch('https://api.upbit.com/v1/market/all?isDetails=false', options)
+            .then(response => response.text())
+            .then(response => setPreferedMarket(JSON.parse(response)))
+            .catch(err => console.error(err));
+
+            const upbitBTC = new WebSocket("wss://api.upbit.com/websocket/v1")
             let Exchange = {}
-            upbitExch.onopen = () => {
-                upbitExch.send(JSON.stringify([{ "ticket": uuidv4() },
+            upbitBTC.onopen = () => {
+                upbitBTC.send(JSON.stringify([{ "ticket": uuidv4() },
                     {
                         "type": "ticker",
                         "codes": [ "KRW-BTC" ],
                     }]))
             }
-            upbitExch.onmessage = (evt) => {
+            upbitBTC.onmessage = (evt) => {
                 const reader = new FileReader()
                 reader.onload = () => {
                     const tick = JSON.parse(reader.result)
@@ -99,7 +133,7 @@
                     { "ticket": uuidv4() },
                     {
                         "type": "ticker",
-                        "codes": Object.keys(wallet).map((item) => "KRW-" + item)
+                        "codes": Object.keys(wallet).map((item) => preferedMarket[item] + "-" + item)
                     }
                 ]))
 
