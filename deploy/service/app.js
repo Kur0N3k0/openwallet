@@ -207,7 +207,7 @@ app.get("/ranking", (req, res) => {
                     })
 
                     let result2 = await Promise.all(prom)
-                    
+
                     let startBalance = KRWBalance
                     let afterBalance = KRWBalance
 

@@ -36,7 +36,7 @@
                     </div>
                     <hr>
                     <% users.forEach((user, idx) => { %>
-                    <div class="row">
+                    <div class="row" onclick="location=`/user/<%= user.nick %>`" style="cursor: pointer;">
                         <div class="col-3 text-end">
                             <h4><%= idx + 1 %>등</h4>
                         </div>

@@ -8,6 +8,7 @@ services:
       context: .
       dockerfile: Dockerfile
     environment:
+      TZ: Asia/Seoul
       UPBIT_OPEN_API_SERVER_URL: https://api.upbit.com
       MONGO_URI: mongodb://openwallet-db/openwallet
     volumes:
@@ -24,6 +25,7 @@ services:
       context: .
       dockerfile: Dockerfile
     environment:
+      TZ: Asia/Seoul
       UPBIT_OPEN_API_SERVER_URL: https://api.upbit.com
       UPBIT_OPEN_API_SERVER_WSS: wss://api.upbit.com/websocket/v1
     restart: always
@@ -35,11 +37,29 @@ services:
   cache:
     image: redis:latest
     container_name: openwallet-redis
+    environment:
+      TZ: Asia/Seoul
     expose:
       - 6379
   
   openwallet-db:
     image: mongo:latest
     container_name: openwallet-db
+    environment:
+      TZ: Asia/Seoul
     expose:
       - 27017
+  
+  openwallet-settlement:
+    image: openwallet-settlement
+    container_name: openwallet-settlement
+    build:
+      context: .
+      dockerfile: Dockerfile-settlement
+    environment:
+      TZ: Asia/Seoul
+      UPBIT_OPEN_API_SERVER_URL: https://api.upbit.com
+      MONGO_URI: mongodb://openwallet-db/openwallet
+    restart: always
+    volumes:
+      - ./deploy/settlement:/app
