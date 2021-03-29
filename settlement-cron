@@ -1,1 +1,1 @@
-0 0 * * * node /app/app.js
+0 0 * * * cd /app && node app.js >> /var/log/cron.log

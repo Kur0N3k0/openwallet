@@ -27,11 +27,17 @@
                     <div class="row text-center" id="chart">
                         <canvas id="canvas" height="400"></canvas>
                     </div>
+                    <div class="row text-center profit-diff">
+                        <span>전일대비 증감: 0</span>
+                    </div>
                 </div>
             </div>
             
             <div id="snackbar"></div>
             <div class="footer">
+                <div class="footer-item">
+                    <a href="/">메인</a>
+                </div>
                 <div class="footer-item">
                     <a href="/ranking">랭킹</a>
                 </div>
@@ -39,7 +45,10 @@
                     <a href="/settlement/<%= user.nick %>">수익률</a>
                 </div>
                 <div class="footer-item">
-                    <a href="#" class="share" data-clipboard-text="https://coin.ltra.cc/user/<%= user.nick %>">공유하기</a>
+                    <a href="/kimchi">김프</a>
+                </div>
+                <div class="footer-item">
+                    <a href="#" class="share" data-clipboard-text="https://coin.ltra.cc/settlement/<%= user.nick %>">공유하기</a>
                 </div>
             </div>
         </div>
@@ -138,6 +147,10 @@
                         config.data.datasets[0].data[6 - i] = data[i].balance
                     }
 
+                    diff = config.data.datasets[0].data[6] - config.data.datasets[0].data[5]
+                    percent = (diff / config.data.datasets[0].data[5] * 100).toFixed(2)
+                    $(".profit-diff").html(`<h4>전일대비 증감: ${diff} (${percent}%)</h4>`)
+
                     var ctx = document.getElementById('canvas').getContext('2d')
                     window.myLine = new Chart(ctx, config)
                 }
@@ -145,5 +158,24 @@
         }
 
         drawSettlement()
+
+        $(() => {
+            var clipboard = new ClipboardJS('.share')
+            clipboard.on('success', (e) => {
+                Snackbar("복사 완료")
+                console.log(e)
+            })
+            clipboard.on('error', (e) => {
+                Snackbar("복사 실패")
+                console.log(e);
+            })
+
+            function Snackbar(msg) {
+                var x = document.getElementById("snackbar");
+                x.className = "show";
+                x.textContent = msg;
+                setTimeout(function () { x.className = x.className.replace("show", ""); }, 3000);
+            }
+        })
     </script>
 </html>

@@ -278,6 +278,10 @@ app.post("/settlement/:user", (req, res) => {
         })
 })
 
+app.get("/kimchi", (req, res) => {
+    res.render("premium")
+})
+
 io.sockets.on('connection', (client) => {
     client.on('wallet', (cred) => {
         if(cred === undefined || cred.nick === undefined)
