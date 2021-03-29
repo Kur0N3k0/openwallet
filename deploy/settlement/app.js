@@ -1,3 +1,5 @@
+const cron = require('node-cron')
+
 const request = require("request-promise")
 const uuidv4 = require("uuid/v4")
 const sign = require('jsonwebtoken').sign
@@ -46,70 +48,73 @@ function getWallet(access_key, secret_key) {
     }
 }
 
-let btc = {}
-cache.get("KRW-BTC", (err, info) => {
-    btc = JSON.parse(info)
-})
+cron.schedule('0 0 0 * * *', async () => {
+    console.log("[*] start settlement")
 
-let date = new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate())
-
-User.find({}).then(async users => {
-    let proms = users.map((user) => {
-        return new Promise(resolve => {
-            getWallet(user.access_key, user.secret_key)
-            .then(async (wallet) => {
-                let filtered = wallet.filter(item => item.currency !== "KRW")
-                let krw = wallet.filter(item => item.currency == "KRW")[0]
-                let totalBalance = parseFloat(krw.balance) + parseFloat(krw.locked)
-
-                let btcitem = []
-                let promises = filtered.map((item) => {
-                    return getAsync("KRW-"+item.currency).then((data) => {
-                        if(data == null) {
-                            btcitem.push(item.currency)
-                            return 0
-                        }
-                        
-                        data = JSON.parse(data)
-        
-                        let balance = parseFloat(item.balance) + parseFloat(item.locked)
-                        return balance * data.trade_price
-                    })
-                })
-
-                let balances = await Promise.all(promises)
-
-                promises = btcitem.map((item) => {
-                    return getAsync("BTC-"+item.currency).then((data) => {
-                        if(data == null) {
-                            return 0
-                        }
-
-                        data = JSON.parse(data)
-
-                        let balance = parseFloat(item.balance) + parseFloat(item.locked)
-                        return balance * data.trade_price * btc.trade_price
-                    })
-                })
-                
-                balances.concat(await Promise.all(promises))
-                balances.forEach((item) => {
-                    totalBalance += item
-                })
-
-                Settlement.create({
-                    nick: user.nick,
-                    balance: Math.floor(totalBalance),
-                    date: date
-                })
-                .catch(err => console.log(err))
-                .finally(_ => resolve())
-            })
-            .catch((err) => console.log(err))
+    let btc = await new Promise(resolve => {
+        cache.get("KRW-BTC", (err, info) => {
+            resolve(JSON.parse(info))
         })
     })
 
-    await Promise.all(proms)
+    let date = new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate())
 
-    process.exit(0)
+    User.find({}).then(async users => {
+        let proms = users.map((user) => {
+            return new Promise(resolve => {
+                getWallet(user.access_key, user.secret_key)
+                .then(async (wallet) => {
+                    let filtered = wallet.filter(item => item.currency !== "KRW")
+                    let krw = wallet.filter(item => item.currency == "KRW")[0]
+                    let totalBalance = parseFloat(krw.balance) + parseFloat(krw.locked)
+
+                    let btcitem = []
+                    let promises = filtered.map((item) => {
+                        return getAsync("KRW-"+item.currency).then((data) => {
+                            if(data == null) {
+                                btcitem.push(item.currency)
+                                return 0
+                            }
+                            
+                            data = JSON.parse(data)
+            
+                            let balance = parseFloat(item.balance) + parseFloat(item.locked)
+                            return balance * data.trade_price
+                        })
+                    })
+
+                    let balances = await Promise.all(promises)
+
+                    promises = btcitem.map((item) => {
+                        return getAsync("BTC-"+item.currency).then((data) => {
+                            if(data == null) {
+                                return 0
+                            }
+
+                            data = JSON.parse(data)
+
+                            let balance = parseFloat(item.balance) + parseFloat(item.locked)
+                            return balance * data.trade_price * btc.trade_price
+                        })
+                    })
+                    
+                    balances.concat(await Promise.all(promises))
+                    balances.forEach((item) => {
+                        totalBalance += item
+                    })
+
+                    Settlement.create({
+                        nick: user.nick,
+                        balance: Math.floor(totalBalance),
+                        date: date
+                    })
+                    .catch(err => console.log(err))
+                    .finally(_ => resolve())
+                })
+                .catch((err) => console.log(err))
+            })
+        })
+
+        await Promise.all(proms)
+    })
 })
