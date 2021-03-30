@@ -1,9 +1,0 @@
-FROM node:latest
-
-RUN apt-get update && apt-get -y install cron
-RUN touch /var/log/cron.log
-COPY settlement-cron /etc/cron.d/settlement-cron
-RUN chmod 0644 /etc/cron.d/settlement-cron
-RUN crontab /etc/cron.d/settlement-cron
-
-CMD cron && tail -f /var/log/cron.log

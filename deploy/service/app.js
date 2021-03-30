@@ -12,6 +12,7 @@ const mongoose = require('mongoose')
 
 const User = require('./models/user')
 const Settlement = require('./models/settlement')
+const Board = require('./models/board')
 
 const server_url = process.env.UPBIT_OPEN_API_SERVER_URL || 'https://api.upbit.com'
 const mongo_uri = process.env.MONGO_URI || 'mongodb://localhost/openwallet'
@@ -60,14 +61,21 @@ app.set('view engine', 'ejs')
 app.enable('trust proxy')
 
 app.get("/", (req, res) => {
-    res.render("index")
+    res.render("index", {
+        title: "Openwallet",
+        description: "Reveal your wallet"
+    })
 })
 
 app.get("/user/:user", (req, res) => {
     const nick = req.params.user
     User.findOne({ nick: nick }).exec((err, result) => {
         if(result !== null) {
-            res.render("user", { user: result })
+            res.render("user", {
+                title: `${result.nick}'s Wallet`,
+                description: `${result.nick}'s Wallet`,
+                user: result
+            })
         } else {
             res.render("error", { msg: "user not found", access_key: "", secret_key: "" })
         }
@@ -117,7 +125,11 @@ app.post("/remove", (req, res) => {
 app.get("/ranking", (req, res) => {
     cache.get("ranking", (err, data) => {
         if(data !== null) {
-            return res.render("ranking", { users: JSON.parse(data) })
+            return res.render("ranking", {
+                title: "Ranking",
+                description: "Profit ranking",
+                users: JSON.parse(data)
+            })
         }
 
         let wallets = []
@@ -246,7 +258,11 @@ app.get("/ranking", (req, res) => {
             })
 
             cache.setex("ranking", 60 * 30, JSON.stringify(result))
-            res.render("ranking", { users: result })
+            res.render("ranking", {
+                title: "Ranking",
+                description: "Profit ranking",
+                users: result
+            })
         })
     })
 })
@@ -256,7 +272,11 @@ app.get("/settlement/:user", (req, res) => {
 
     User.findOne({ nick: nick }).exec((err, result) => {
         if(result !== null) {
-            res.render("settlement", { user: result })
+            res.render("settlement", {
+                title: `${result.nick}'s Settlement`,
+                description: `${result.nick}'s Settlement`,
+                user: result
+            })
         } else {
             res.render("error", { msg: "user not found", access_key: "", secret_key: "" })
         }
@@ -279,7 +299,59 @@ app.post("/settlement/:user", (req, res) => {
 })
 
 app.get("/kimchi", (req, res) => {
-    res.render("premium")
+    res.render("premium", {
+        title: "Kimchi premium",
+        description: "Kimchi premium"
+    })
+})
+
+app.get("/board", (req, res) => {
+    Board.find({}).sort({ 'createdAt': -1 }).exec((err, data) => {
+        let board = []
+        if(data !== null) {
+            board = data
+        }
+        res.render("board", {
+            title: "버그 및 제안",
+            description: "버그 제보 및 기능 제안",
+            board: board
+        })
+    })
+})
+
+app.get("/board/view/:uuid", (req, res) => {
+    const uuid = req.params.uuid
+    Board.findOne({ uuid: uuid }).exec((err, data) => {
+        if(data == null) {
+            return res.render("error", { msg: "content not found", access_key: "", secret_key: "" })
+        }
+        res.render("board_view", {
+            title: data.title,
+            description: data.title,
+            board: data
+        })
+    })
+})
+
+app.get("/board/write", (req, res) => {
+    res.render("board_write", {
+        title: "버그 및 기능제안 작성",
+        description: "버그 및 기능제안 작성"
+    })
+})
+
+app.post("/board/write", (req, res) => {
+    const ip = getIP(req)
+    Board.create({
+        uuid: uuidv4(),
+        title: req.body.title,
+        content: req.body.content,
+        nick: req.body.nick,
+        checked: false,
+        ip: ip
+    })
+    .then(() => res.json({ error: 0 }))
+    .catch(_ => res.json({ error: -1 }))
 })
 
 io.sockets.on('connection', (client) => {

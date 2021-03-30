@@ -1,0 +1,56 @@
+<%-include('header')%>
+    <body>
+        <div class="container h-100">
+            <div class="row h-100 justify-content-center align-items-center">
+                <div class="col col-sm-7 text-center">
+                    <h2 style="padding-bottom: 20px;">버그 및 기능 제안 게시판</h2>
+                    <div class="text-end">
+                        <input type="button" class="btn btn-dark" value="작성" id="write">
+                    </div>
+                    <table class="table table-responsive text-light">
+                        <thead>
+                            <tr class="d-flex">
+                                <td class="col-1">#</td>
+                                <td class="col-7">Title</td>
+                                <td class="col-2">Nick</td>
+                                <td class="col-2">Check</td>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <% if(board.length == 0) { %>
+                            <tr class="d-flex text-center">
+                                <td class="col-12" colspan="4">
+                                    <span>게시글이 없습니다.</span>
+                                </td>
+                            </tr>
+                            <% } %>
+                            <% board.forEach((content, idx) => { %>
+                            <tr class="d-flex" onclick="view(this)" style="cursor: pointer;" data-uuid="<%= content.uuid %>">
+                                <td class="col-1"><%= board.length - idx %></td>
+                                <td class="col-7"><%= content.title %></td>
+                                <td class="col-2"><%= content.nick %></td>
+                                <td class="col-2">
+                                    <% if(board.checked) { %>
+                                        ✅
+                                    <% } else { %>
+                                        ❌
+                                    <% } %>
+                                </td>
+                            </tr>
+                            <%})%>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+<%-include('footer')%>
+<script>
+    $("#write").click(() => {
+        location=`/board/write`
+    })
+
+    const view = (item) => {
+        const uuid = $(item).attr("data-uuid")
+        location = `/board/view/${uuid}`
+    }
+</script>
+</html>

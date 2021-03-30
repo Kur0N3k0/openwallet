@@ -1,0 +1,63 @@
+<%-include('header')%>
+    <body>
+        <div class="container h-100">
+            <div class="row h-100 justify-content-center align-items-center">
+                <div class="col col-sm-7 text-center">
+                    <h2 style="padding-bottom: 20px;">버그 및 기능 제안 게시판</h2>
+                    <table class="table table-responsive text-light">
+                        <tbody>
+                            <tr>
+                                <td>Title</td>
+                                <td>
+                                    <input type="text" class="form-control" placeholder="Title" aria-label="Title" id="title">
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>Nick</td>
+                                <td>
+                                    <input type="text" class="form-control" placeholder="Nick" aria-label="Nick" id="nick">
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>Content</td>
+                                <td>
+                                    <textarea class="form-control" id="content"></textarea>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td colspan="2" class="text-center">
+                                    <input type="button" id="write" class="btn btn-light" value="작성">
+                                    <input type="button" id="cancel" class="btn btn-dark" value="취소">
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+<%-include('footer')%>
+<script>
+    $("#write").click(() => {
+        const title = $("#title").val()
+        const nick = $("#nick").val()
+        const content = $("#content").val()
+
+        $.ajax({
+            method: "POST",
+            data: JSON.stringify({ title, nick, content }),
+            dataType: "json",
+            contentType: "application/json",
+            success: (result) => {
+                if(result.error) {
+                    alert("작성 실패")
+                    return
+                }
+                location = '/board'
+            }
+        })
+    })
+
+    $("#cancel").click(() => {
+        history.back()
+    })
+</script>
+</html>

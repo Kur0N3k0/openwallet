@@ -1,0 +1,40 @@
+            <div id="snackbar"></div>
+            <div class="footer">
+                <div class="footer-item">
+                    <a href="/">메인</a>
+                </div>
+                <div class="footer-item">
+                    <a href="/ranking">랭킹</a>
+                </div>
+                <div class="footer-item">
+                    <a href="/kimchi">김프</a>
+                </div>
+                <div class="footer-item">
+                    <a href="/board">제안</a>
+                </div>
+                <div class="footer-item">
+                    <a href="#" class="share" data-clipboard-text="">공유</a>
+                </div>
+            </div>
+        </div>
+    </body>
+    <script>
+        $(".share").attr("data-clipboard-text", location.href)
+
+        var clipboard = new ClipboardJS('.share')
+        clipboard.on('success', (e) => {
+            Snackbar("복사 완료")
+            console.log(e)
+        })
+        clipboard.on('error', (e) => {
+            Snackbar("복사 실패")
+            console.log(e);
+        })
+
+        function Snackbar(msg) {
+            var x = document.getElementById("snackbar");
+            x.className = "show";
+            x.textContent = msg;
+            setTimeout(function () { x.className = x.className.replace("show", ""); }, 3000);
+        }
+    </script>
