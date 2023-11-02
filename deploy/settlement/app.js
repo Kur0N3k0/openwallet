@@ -1,11 +1,13 @@
 const cron = require('node-cron')
 
-const request = require("request-promise")
-const uuidv4 = require("uuid/v4")
+const request = require("node-fetch").default
+const uuidv4 = require("uuid").v4
 const sign = require('jsonwebtoken').sign
 const { promisify } = require("util");
 const redis = require('redis')
-const cache = redis.createClient({ host: "openwallet-redis", port: 6379 })
+const cache = redis.createClient({ url: "redis://openwallet-redis:6379" })
+cache.connect()
+
 const getAsync = promisify(cache.get).bind(cache);
 const mongoose = require('mongoose')
 
@@ -36,11 +38,8 @@ function getWallet(access_key, secret_key) {
             headers: {Authorization: `Bearer ${token}`},
         }
 
-        return request(options)
-            .then((wallet) => {
-                var mWallet = JSON.parse(wallet)
-                return mWallet
-            })
+        return request(server_url + "/v1/accounts", options)
+            .then((resp) => resp.json())
     } catch(e) {
         return new Promise((resolve, reject) => {
             reject(new Error("error"))
@@ -48,11 +47,9 @@ function getWallet(access_key, secret_key) {
     }
 }
 
-cron.schedule('0 0 0 * * *', async () => {
-    console.log("[*] start settlement")
-
+async function work() {
     let btc = await new Promise(resolve => {
-        cache.get("KRW-BTC", (err, info) => {
+        cache.get("KRW-BTC").then((info) => {
             resolve(JSON.parse(info))
         })
     })
@@ -117,4 +114,12 @@ cron.schedule('0 0 0 * * *', async () => {
 
         await Promise.all(proms)
     })
+}
+
+cron.schedule('0 0 0 * * *', async () => {
+    console.log("[*] start settlement")
+
+    work()
 })
+
+work()

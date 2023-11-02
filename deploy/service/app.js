@@ -1,5 +1,5 @@
-const request = require('request-promise')
-const uuidv4 = require("uuid/v4")
+const request = require('node-fetch').default
+const uuidv4 = require("uuid").v4
 const sign = require('jsonwebtoken').sign
 const morgan = require("morgan")
 const express = require("express")
@@ -7,8 +7,10 @@ const app = express()
 const server = require('http').createServer(app)
 const io = require('socket.io')(server, { pingInterval: 2000, pingTimeout: 5000 })
 const redis = require('redis')
-const cache = redis.createClient({ host: "openwallet-redis", port: 6379 })
+const cache = redis.createClient({ url: "redis://openwallet-redis:6379" })
 const mongoose = require('mongoose')
+
+cache.connect()
 
 const User = require('./models/user')
 const Settlement = require('./models/settlement')
@@ -38,15 +40,11 @@ function getWallet(access_key, secret_key) {
     
         const options = {
             method: "GET",
-            url: server_url + "/v1/accounts",
             headers: {Authorization: `Bearer ${token}`},
         }
 
-        return request(options)
-            .then((wallet) => {
-                var mWallet = JSON.parse(wallet)
-                return mWallet
-            })
+        return request(server_url + "/v1/accounts", options)
+            .then((resp) => resp.json())
     } catch(e) {
         return new Promise((resolve, reject) => {
             reject(new Error("error"))
@@ -71,6 +69,7 @@ app.get("/user/:user", (req, res) => {
     const nick = req.params.user
     User.findOne({ nick: nick }).exec((err, result) => {
         if(result !== null) {
+            console.log(result)
             res.render("user", {
                 title: `${result.nick}'s Wallet`,
                 description: `${result.nick}'s Wallet`,
@@ -97,12 +96,16 @@ app.post("/setup", (req, res) => {
                 ip: ip
             })
             .then(_ => {
-                cache.setex(`wallet_${req.body.nick}`, 3, JSON.stringify(data))
+                cache.setEx(`wallet_${req.body.nick}`, 3, JSON.stringify(data))
                 res.json({ error: 0 })
             })
-            .catch(_ => res.json({ error: -1 }))
+            .catch(e => {
+                console.log(e)
+                res.json({ error: -1 })
+            })
         })
         .catch((err) => {
+            console.log(err)
             res.json({ error: -5 })
         })
     }
@@ -123,8 +126,10 @@ app.post("/remove", (req, res) => {
 })
 
 app.get("/ranking", (req, res) => {
-    cache.get("ranking", (err, data) => {
-        if(data !== null) {
+    cache.get("ranking")
+    .then((data) => {
+        console.log("data:", data)
+        if(data !== null && data.length !== 0) {
             return res.render("ranking", {
                 title: "Ranking",
                 description: "Profit ranking",
@@ -135,8 +140,7 @@ app.get("/ranking", (req, res) => {
         let wallets = []
         User.find({}).exec(async (err, users) => {
             if(users === null) {
-                res.json({ error: -6 })
-                return
+                return res.json({ error: -6 })
             }
 
             let promises = users.map(async (user) => {
@@ -160,7 +164,7 @@ app.get("/ranking", (req, res) => {
 
                     let prom = filtered.map((item) => {
                         return new Promise(resolve => {
-                            cache.get("KRW-"+item.currency, (err, data) => {
+                            cache.get("KRW-"+item.currency).then((data) => {
                                 if(data == null) {
                                     resolve({ currency: item.currency, startPrice: 0, afterPrice: 0 })
                                     return
@@ -183,7 +187,7 @@ app.get("/ranking", (req, res) => {
                     let BTCprice = 0
 
                     BTCprice = await new Promise(resolve => {
-                        cache.get("KRW-BTC", (err, btc) => {
+                        cache.get("KRW-BTC").then((btc) => {
                             btc = JSON.parse(btc)
                             resolve(btc.trade_price)
                         })
@@ -191,7 +195,7 @@ app.get("/ranking", (req, res) => {
 
                     prom = filtered.map((item) => {
                         return new Promise(resolve => {
-                            cache.get("BTC-"+item.currency, (err, data) => {
+                            cache.get("BTC-"+item.currency).then((data) => {
                                 if(data == null) {
                                     resolve({ currency: item.currency, startPrice: 0, afterPrice: 0 })
                                     return
@@ -235,7 +239,7 @@ app.get("/ranking", (req, res) => {
                     })
 
                     var percentage = afterBalance > startBalance ? (afterBalance / startBalance) * 100 - 100 : -(1 - afterBalance / startBalance) * 100
-                    resolve({ nick: info.nick, total_profit: parseFloat(percentage.toFixed(2)) })
+                    resolve({ nick: info.nick, total_profit: parseFloat(percentage.toFixed(2)), profit: Math.floor(afterBalance - startBalance) })
                 })
             })
 
@@ -247,17 +251,19 @@ app.get("/ranking", (req, res) => {
                 if(a.total_profit > b.total_profit)
                     return -1
                 
-                if(a.total_profit == b.total_profit) {
-                    if(a.nick < b.nick)
-                        return -1
-                    if(a.nick > b.nick)
-                        return 1
-                    return 0
-                }
+                if(a.profit < b.profit)
+                    return -1
+                if(a.profit > b.profit)
+                    return 1
+
+                if(a.nick < b.nick)
+                    return -1
+                if(a.nick > b.nick)
+                    return 1
                 return 0
             })
 
-            cache.setex("ranking", 60 * 30, JSON.stringify(result))
+            cache.setEx("ranking", 60 * 5, JSON.stringify(result))
             res.render("ranking", {
                 title: "Ranking",
                 description: "Profit ranking",
@@ -361,11 +367,11 @@ io.sockets.on('connection', (client) => {
 
         User.findOne({ nick: cred.nick }).exec((err, result) => {
             if(result !== null) {
-                cache.get(`wallet_${cred.nick}`, (err, cdata) => {
+                cache.get(`wallet_${cred.nick}`).then((cdata) => {
                     if(err || cdata == null) {
                         getWallet(result.access_key, result.secret_key)
                             .then((data) => {
-                                cache.setex(`wallet_${cred.nick}`, 3, JSON.stringify(data))
+                                cache.setEx(`wallet_${cred.nick}`, 3, JSON.stringify(data))
                                 client.emit('wallet', data)
                             })
                             .catch((err) => {

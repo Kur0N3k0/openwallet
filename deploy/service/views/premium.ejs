@@ -109,10 +109,10 @@
     }
 
     function getExchangeRate() {
-        return fetch("https://api.exchangeratesapi.io/latest?base=USD")
+        return fetch("https://api.freecurrencyapi.com/v1/latest?apikey=sgiPfh4j3aXFR3l2CnjWqdKQzxpqGn9pX5b3CUsz&base_currency=USD&currencies=KRW")
             .then(response => response.text())
             .then(response => JSON.parse(response))
-            .then(response => parseFloat(response["rates"]["KRW"]))
+            .then(response => parseFloat(response["data"]["KRW"]))
     }
 
     function setBinanceMarkets(data) {

@@ -1,8 +1,9 @@
-const request = require('request-promise')
-const uuidv4 = require("uuid/v4")
+const request = require('node-fetch').default
+const uuidv4 = require("uuid").v4
 const wsClient = require('ws')
 const redis = require('redis')
-const cache = redis.createClient({ host: "openwallet-redis", port: 6379 })
+const cache = redis.createClient({ url: "redis://openwallet-redis:6379" })
+cache.connect()
 
 const server_url = process.env.UPBIT_OPEN_API_SERVER_URL || 'https://api.upbit.com'
 const server_wss = process.env.UPBIT_OPEN_API_SERVER_WSS || 'wss://api.upbit.com/websocket/v1'
@@ -10,15 +11,12 @@ const server_wss = process.env.UPBIT_OPEN_API_SERVER_WSS || 'wss://api.upbit.com
 const upbit = {
     getMarkets: function() {
         const options = {
-            method: "GET",
-            url: server_url + "/v1/market/all"
+            method: "GET"
         }
         
-        return request(options)
-            .then((markets) => {
-                const result = JSON.parse(markets)
-                return result.map((item) => item["market"])
-            })
+        return request(server_url + "/v1/market/all", options)
+            .then((resp) => resp.json())
+            .then((result) => result.map((item) => item["market"]))
             .catch((error) => {
                 console.log(error)
                 return error

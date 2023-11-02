@@ -1,0 +1,12 @@
+{
+  "dependencies": {
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^6.10.0",
+    "node-cron": "^3.0.2",
+    "node-fetch": "^2.7.0",
+    "redis": "^4.6.10",
+    "request-promise": "^0.0.1",
+    "socket.io": "^4.7.2",
+    "uuid": "^9.0.1"
+  }
+}

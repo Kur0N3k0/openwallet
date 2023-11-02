@@ -2,15 +2,150 @@
     <body>
         <div class="container content">
             <div class="row h-100 justify-content-center align-items-center">
-                <div class="col w-25 currency_table">
-                    <div class="row text-center" id="nick">
-                        <h2><%= user.nick %></h2>
+                <div class="row">
+                    <div class="col w-25">
+                        <div class="row text-center" id="nick">
+                            <h2>
+                                <span id="user-nick"><%= user.nick %></span>
+                                <span id="interest" style="cursor:pointer">⭐️</span>
+                            </h2>
+                        </div>
+                        <div class="row text-center" id="chart">
+                            <canvas id="canvas" height="400"></canvas>
+                        </div>
+                        <div class="row text-center profit-diff">
+                            <span>전일대비 증감: 0</span>
+                        </div>
+                        <div class="row">
+                            <div class="col w-25 currency_table">
+                                
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
 <%-include('./footer-user')%>
     <script>
+        window.chartColors = {
+            red: 'rgb(255, 99, 132)',
+            orange: 'rgb(255, 159, 64)',
+            yellow: 'rgb(255, 205, 86)',
+            green: 'rgb(75, 192, 192)',
+            blue: 'rgb(54, 162, 235)',
+            purple: 'rgb(153, 102, 255)',
+            grey: 'rgb(201, 203, 207)'
+        };
+
+        function getFormatDate(date){
+            var year = date.getFullYear();
+            var month = (1 + date.getMonth());
+            month = month >= 10 ? month : '0' + month;
+            var day = date.getDate();
+            day = day >= 10 ? day : '0' + day;
+            return year + '-' + month + '-' + day;
+        }
+
+        let date = new Date()
+        let labels = []
+        for(let i = 0; i < 7; i++) {
+            labels.push(getFormatDate(date).substr(5))
+            date.setDate(date.getDate() - 1)
+        }
+        labels = labels.reverse()
+
+        var config = {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: '<%= user.nick %>',
+                    backgroundColor: window.chartColors.blue,
+                    borderColor: window.chartColors.blue,
+                    data: [0, 0, 0, 0, 0, 0, 0],
+                    fill: false,
+                    lineTension: 0
+                }]
+            },
+            options: {
+                responsive: false,
+                title: {
+                    display: true,
+                    text: 'Daily Settlement',
+                    fontColor: 'white'
+                },
+                tooltips: {
+                    mode: 'index',
+                    intersect: false,
+                },
+                hover: {
+                    mode: 'nearest',
+                    intersect: true
+                },
+                scales: {
+                    xAxes: [{
+                        display: true,
+                        scaleLabel: {
+                            display: true,
+                            fontColor: 'white'
+                        }
+                    }],
+                    yAxes: [{
+                        display: true,
+                        scaleLabel: {
+                            display: true,
+                            fontColor: 'white'
+                        }
+                    }]
+                }
+            }
+        };
+
+        function drawSettlement() {
+            $.ajax({
+                method: "POST",
+                url: "/settlement/<%= user.nick %>",
+                contentType: "application/json",
+                dataType: "json",
+                data: JSON.stringify({
+                    date: getFormatDate(new Date()),
+                    limit: 7
+                }),
+                success: (data) => {
+                    if(data.error) {
+                        alert("에러가 발생했습니다.")
+                        return
+                    }
+
+                    for(var i = 0; i < data.length; i++) {
+                        config.data.datasets[0].data[6 - i] = data[i].balance
+                    }
+
+                    diff = config.data.datasets[0].data[6] - config.data.datasets[0].data[5]
+                    percent = (diff / config.data.datasets[0].data[5] * 100).toFixed(2)
+                    $(".profit-diff").html(`<h4>전일대비 증감: ${diff} (${percent}%)</h4>`)
+
+                    var ctx = document.getElementById('canvas').getContext('2d')
+                    window.myLine = new Chart(ctx, config)
+                }
+            })
+        }
+
+        drawSettlement()
+
         $(() => {
+            function Snackbar(msg) {
+                var x = document.getElementById("snackbar");
+                x.className = "show";
+                x.textContent = msg;
+                setTimeout(function () { x.className = x.className.replace("show", ""); }, 3000);
+            }
+
+            $("#interest").click(() => {
+                const nick = $("#user-nick").text()
+                localStorage.setItem("interest-user", nick)
+                Snackbar("관심 유저가 설정되었습니다.")
+            })
+
             var wallet = {}
 
             function uuidv4() {
@@ -201,19 +336,19 @@
                         </div>
                         `)
 
-                        $(".currency_table").append(`
-                        <div class="row donation" style="padding-top:50px; padding-bottom: 70px;">
-                            <div class="text-center">
-                                <h3>Donation</h3>
-                            </div>
-                            <div class="text-center">
-                                <img src="/static/images/BTC.svg" width="32" height="32"> 39Fsbw3dXUbuXyQXdc6oM7z5SvvAkkRcwf
-                            </div>
-                            <div class="text-center">
-                                <img src="/static/images/MBL.png" widht="32" height="32"> ANXZTXH7rV94rAC3yYmNs6zYeFzTHaKsFT
-                            </div>
-                        </div>
-                        `)
+                        // $(".currency_table").append(`
+                        // <div class="row donation" style="padding-top:50px; padding-bottom: 70px;">
+                        //     <div class="text-center">
+                        //         <h3>Donation</h3>
+                        //     </div>
+                        //     <div class="text-center">
+                        //         <img src="/static/images/BTC.svg" width="32" height="32"> 39Fsbw3dXUbuXyQXdc6oM7z5SvvAkkRcwf
+                        //     </div>
+                        //     <div class="text-center">
+                        //         <img src="/static/images/MBL.png" widht="32" height="32"> ANXZTXH7rV94rAC3yYmNs6zYeFzTHaKsFT
+                        //     </div>
+                        // </div>
+                        // `)
                     }
                 }
                 reader.readAsText(evt.data)

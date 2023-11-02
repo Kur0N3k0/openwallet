@@ -4,6 +4,9 @@
                     <a href="/">메인</a>
                 </div>
                 <div class="footer-item">
+                    <a href="#" id="interest-user">유저</a>
+                </div>
+                <div class="footer-item">
                     <a href="/ranking">랭킹</a>
                 </div>
                 <div class="footer-item">
@@ -20,6 +23,15 @@
     </body>
     <script>
         $(".share").attr("data-clipboard-text", location.href)
+
+        $("#interest-user").click(() => {
+            const user = localStorage.getItem("interest-user")
+            if(user === null) {
+                Snackbar("관심 유저를 설정해주세요.")
+                return
+            }
+            location = "/user/" + user
+        })
 
         var clipboard = new ClipboardJS('.share')
         clipboard.on('success', (e) => {
