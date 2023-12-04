@@ -6,28 +6,17 @@ const express = require("express")
 const app = express()
 const server = require('http').createServer(app)
 const io = require('socket.io')(server, { pingInterval: 2000, pingTimeout: 5000 })
-const redis = require('redis')
-const cache = redis.createClient({ url: "redis://openwallet-redis:6379" })
-const mongoose = require('mongoose')
 
-cache.connect()
-
+const { server_url } = require("./config")
+const { setupDB, setupCache } = require("./db")
+const { getIP, getTicker, getMarkets, unique } = require("./utils")
+const userFactory = require("./factory/user")
 const User = require('./models/user')
 const Settlement = require('./models/settlement')
 const Board = require('./models/board')
 
-const server_url = process.env.UPBIT_OPEN_API_SERVER_URL || 'https://api.upbit.com'
-const mongo_uri = process.env.MONGO_URI || 'mongodb://localhost/openwallet'
-
-mongoose.Promise = global.Promise
-
-mongoose.connect(mongo_uri, { useNewUrlParser: true, useUnifiedTopology: true })
-  .then(() => console.log('Successfully connected to mongodb'))
-  .catch(e => console.error(e))
-
-function getIP(req) {
-    return req.headers["x-real-ip"] || req.connection.remoteAddress
-}
+setupDB()
+const cache = setupCache()
 
 function getWallet(access_key, secret_key) {
     const payload = {
@@ -67,67 +56,112 @@ app.get("/", (req, res) => {
 
 app.get("/user/:user", (req, res) => {
     const nick = req.params.user
-    User.findOne({ nick: nick }).exec((err, result) => {
-        if(result !== null) {
-            console.log(result)
-            res.render("user", {
-                title: `${result.nick}'s Wallet`,
-                description: `${result.nick}'s Wallet`,
-                user: result
-            })
-        } else {
-            res.render("error", { msg: "user not found", access_key: "", secret_key: "" })
-        }
+    
+    userFactory.getInfo(nick, (err, result) => {
+        if(result === null)
+            return res.render("error", { msg: "user not found", access_key: "", secret_key: "" })
+        
+        console.log(result)
+        res.render("user", {
+            title: `${result.nick}'s Wallet`,
+            description: `${result.nick}'s Wallet`,
+            user: result
+        })
     })
 })
 
-app.post("/setup", (req, res) => {
-    if(typeof req.body.nick === "string" &&
-        typeof req.body.access_key === "string" &&
-        typeof req.body.secret_key === "string"
-    ){
-        const ip = getIP(req)
-        getWallet(req.body.access_key, req.body.secret_key)
-        .then((data) => {
-            User.create({
-                nick: req.body.nick,
-                access_key: req.body.access_key,
-                secret_key: req.body.secret_key,
-                ip: ip
-            })
-            .then(_ => {
-                cache.setEx(`wallet_${req.body.nick}`, 3, JSON.stringify(data))
-                res.json({ error: 0 })
-            })
-            .catch(e => {
-                console.log(e)
-                res.json({ error: -1 })
-            })
-        })
-        .catch((err) => {
-            console.log(err)
-            res.json({ error: -5 })
-        })
+app.post("/setup", async (req, res) => {
+    const { nick, access_key, secret_key } = req.body
+    if(typeof nick !== "string" || typeof access_key !== "string" || typeof secret_key !== "string") {
+        return res.json({ error: -2 })
     }
-    else res.json({ error: -2 })
+
+    const ip = getIP(req)
+    userFactory.setupUser(access_key, secret_key, { nick, access_key, secret_key, ip })
+    .then(data => {
+        cache.setEx(`wallet_${nick}`, 3, JSON.stringify(data))
+        res.json({ error: 0 })
+    })
+    .catch(e => {
+        console.log(e)
+        res.json({ error: -1 })
+    })
 })
 
 app.post("/remove", (req, res) => {
-    if(typeof req.body.access_key === "string" &&
-        typeof req.body.secret_key === "string"
-    ){
-        User.findOneAndRemove({
-            access_key: req.body.access_key,
-            secret_key: req.body.secret_key
-        }).then(_ => res.json({ error: 0 }))
-        .catch(_ => res.json({ error: -3 }))
+    const { access_key, secret_key } = req.body
+    if(typeof access_key !== "string" || typeof secret_key !== "string") {
+        return res.json({ error: -4 })
     }
-    else res.json({ error: -4 })
+    userFactory.remove(access_key, secret_key)
+        .then(_ => res.json({ error: 0 }))
+        .catch(_ => res.json({ error: -3 }))
+})
+
+app.get("/ranking/total", (req, res) => {
+    let result = []
+
+    userFactory.getAll(async (err, users) => {
+        let waits = []
+        users.map((user) => {
+            waits.push(new Promise((resolve) => {
+                userFactory.getSettlements(user, {
+                    start: new Date("1970-01-01"),
+                    end: new Date()
+                }, (err, settlements) => {
+                    if (settlements === null) {
+                        resolve()
+                        return
+                    }
+    
+                    if (settlements.length === 0) {
+                        resolve()
+                        return
+                    }
+    
+                    // console.log(settlements)
+                    const last = settlements[settlements.length - 1]
+                    const start = settlements[0]
+    
+                    const profit = last.balance - start.balance
+                    const rate = last.balance >= start.balance ? last.balance / start.balance * 100 - 100 : -(1 - last.balance / start.balance) * 100
+                    
+                    result.push({ nick: user.nick, total_profit: parseFloat(rate.toFixed(2)), profit: Math.floor(profit) })
+                    resolve()
+                })
+            }))
+        })
+
+        await Promise.all(waits)
+
+        result.sort((a, b) => {
+            if(a.total_profit < b.total_profit)
+                return 1
+            if(a.total_profit > b.total_profit)
+                return -1
+            
+            if(a.profit < b.profit)
+                return -1
+            if(a.profit > b.profit)
+                return 1
+
+            if(a.nick < b.nick)
+                return -1
+            if(a.nick > b.nick)
+                return 1
+            return 0
+        })
+
+        return res.render("ranking", {
+            title: "Ranking",
+            description: "Profit ranking",
+            users: result
+        })
+    })
 })
 
 app.get("/ranking", (req, res) => {
-    cache.get("ranking")
-    .then((data) => {
+    cache.get("ranking").then(async data => {
         console.log("data:", data)
         if(data !== null && data.length !== 0) {
             return res.render("ranking", {
@@ -137,7 +171,11 @@ app.get("/ranking", (req, res) => {
             })
         }
 
+        let tcache = {}
         let wallets = []
+        let markets = await getMarkets()
+        let upbit_markets = markets.map(ticker => ticker.market)
+
         User.find({}).exec(async (err, users) => {
             if(users === null) {
                 return res.json({ error: -6 })
@@ -156,74 +194,51 @@ app.get("/ranking", (req, res) => {
 
             await Promise.all(promises)
 
+            let currencys = []
+            wallets.map(info => {
+                info.wallet.filter(info => info.currency !== "KRW").map(item => {
+                    if(upbit_markets.indexOf(item.unit_currency+"-"+item.currency) === -1)
+                        return
+
+                    currencys.push(item.unit_currency+"-"+item.currency)
+                    if(item.currency !== "BTC" && upbit_markets.indexOf("BTC-"+item.currency) !== -1) {
+                        currencys.push("BTC-"+item.currency)
+                    }
+                })
+            })
+            currencys = unique(currencys)
+            let tickers = await getTicker(currencys)
+            tickers.map(resp => {
+                tcache[resp.market] = resp.trade_price
+            })
+
+            let BTCprice = tcache["KRW-BTC"]
             promises = wallets.map((info) => {
                 return new Promise(async (resolve) => {
                     let filtered = info.wallet.filter(item => item.currency != "KRW")
                     let krw = info.wallet.filter(item => item.currency == "KRW")[0]
                     let KRWBalance = parseFloat(krw.balance) + parseFloat(krw.locked)
 
-                    let prom = filtered.map((item) => {
-                        return new Promise(resolve => {
-                            cache.get("KRW-"+item.currency).then((data) => {
-                                if(data == null) {
-                                    resolve({ currency: item.currency, startPrice: 0, afterPrice: 0 })
-                                    return
-                                }
-                                
-                                data = JSON.parse(data)
-
-                                let avg_buy_price = parseFloat(item.avg_buy_price)
-                                let balance = parseFloat(item.balance) + parseFloat(item.locked)
-                
-                                let startPrice = balance * avg_buy_price
-                                let afterPrice = balance * data.trade_price
-                
-                                resolve({ currency: item.currency, startPrice, afterPrice })
-                            })
-                        })
-                    })
-
-                    let result = await Promise.all(prom)
-                    let BTCprice = 0
-
-                    BTCprice = await new Promise(resolve => {
-                        cache.get("KRW-BTC").then((btc) => {
-                            btc = JSON.parse(btc)
-                            resolve(btc.trade_price)
-                        })
-                    })
-
-                    prom = filtered.map((item) => {
-                        return new Promise(resolve => {
-                            cache.get("BTC-"+item.currency).then((data) => {
-                                if(data == null) {
-                                    resolve({ currency: item.currency, startPrice: 0, afterPrice: 0 })
-                                    return
-                                }
-                                
-                                data = JSON.parse(data)
+                    let result = filtered.map(item => {
+                        let avg_buy_price = parseFloat(item.avg_buy_price)
+                        let balance = parseFloat(item.balance) + parseFloat(item.locked)
         
-                                result.forEach((x) => {
-                                    if(x.currency == item.currency){
-                                        if(x.startPrice == 0) {
-                                            let avg_buy_price = parseFloat(item.avg_buy_price)
-                                            let balance = parseFloat(item.balance) + parseFloat(item.locked)
-                            
-                                            let startPrice = balance * avg_buy_price
-                                            let afterPrice = balance * data.trade_price * BTCprice
-                            
-                                            resolve({ currency: item.currency, startPrice, afterPrice })
-                                        } else {
-                                            resolve({ currency: item.currency, startPrice: 0, afterPrice: 0 })
-                                        }
-                                    }
-                                })
+                        let startPrice = balance * avg_buy_price
+                        let afterPrice = balance * tcache[item.unit_currency+"-"+item.currency]
+                        if(item.unit_currency === "BTC")
+                            afterPrice = afterPrice * BTCprice
 
-                            })
-                        })
+                        if(isNaN(afterPrice)) {
+                            startPrice = 0
+                            afterPrice = 0
+                        }
+
+                        return {
+                            currency: item.currency,
+                            startPrice,
+                            afterPrice
+                        }
                     })
-
-                    let result2 = await Promise.all(prom)
 
                     let startBalance = KRWBalance
                     let afterBalance = KRWBalance
@@ -232,11 +247,8 @@ app.get("/ranking", (req, res) => {
                         startBalance += item.startPrice
                         afterBalance += item.afterPrice
                     })
-                    
-                    result2.forEach((item) => {
-                        startBalance += item.startPrice
-                        afterBalance += item.afterPrice
-                    })
+
+                    console.log(info.nick, startBalance, afterBalance)
 
                     var percentage = afterBalance > startBalance ? (afterBalance / startBalance) * 100 - 100 : -(1 - afterBalance / startBalance) * 100
                     resolve({ nick: info.nick, total_profit: parseFloat(percentage.toFixed(2)), profit: Math.floor(afterBalance - startBalance) })

@@ -9,4 +9,6 @@ const settlementScheme = new mongoose.Schema({
     timestamps: true
 });
 
+settlementScheme.index({ nick: 1, date: 1 }, { unique: true })
+
 module.exports = mongoose.model('settlement', settlementScheme);

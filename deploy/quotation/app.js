@@ -37,7 +37,7 @@ const upbit = {
                         "isOnlySnapshot":true
                     }
                 ]))
-            }, 1000)
+            }, 3000)
         })
         
         socket.on('message', (data) => {

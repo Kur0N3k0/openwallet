@@ -14,44 +14,40 @@ services:
     volumes:
       - ./deploy/service:/app
     ports:
-      - 1122:3000
+      - 127.0.0.1:7788:3000
     depends_on:
       - openwallet-redis
       - openwallet-db
 
-  quotation:
-    image: upbit-quotation
-    container_name: upbit-quotation
-    build:
-      context: .
-      dockerfile: Dockerfile
-    environment:
-      TZ: Asia/Seoul
-      UPBIT_OPEN_API_SERVER_URL: https://api.upbit.com
-      UPBIT_OPEN_API_SERVER_WSS: wss://api.upbit.com/websocket/v1
-    restart: always
-    volumes:
-      - ./deploy/quotation:/app
-    expose:
-      - 3000
-    depends_on:
-      - openwallet-redis
+  # quotation:
+  #   image: upbit-quotation
+  #   container_name: upbit-quotation
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   environment:
+  #     TZ: Asia/Seoul
+  #     UPBIT_OPEN_API_SERVER_URL: https://api.upbit.com
+  #     UPBIT_OPEN_API_SERVER_WSS: wss://api.upbit.com/websocket/v1
+  #   restart: always
+  #   volumes:
+  #     - ./deploy/quotation:/app
+  #   depends_on:
+  #     - openwallet-redis
 
   openwallet-redis:
     image: redis:latest
     container_name: openwallet-redis
     environment:
       TZ: Asia/Seoul
-    expose:
-      - 6379
   
   openwallet-db:
     image: mongo:latest
     container_name: openwallet-db
     environment:
       TZ: Asia/Seoul
-    expose:
-      - 27017
+    volumes:
+      - ./deploy/db:/data/db
   
   openwallet-settlement:
     image: openwallet-settlement

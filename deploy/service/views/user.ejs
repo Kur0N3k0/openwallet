@@ -21,6 +21,18 @@
                                 
                             </div>
                         </div>
+                        <p></p>
+                        <div class="row justify-content-center align-items-center">
+                            <div class="col-2"></div>
+                            <div class="col">
+                                <ins class="adsbygoogle"
+                                    style="display:inline-block;width:100%;height:90px"
+                                    data-ad-client="ca-pub-8915143481493434"
+                                    data-ad-slot="9212813481">
+                                </ins>
+                            </div>
+                            <div class="col-2"></div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -47,7 +59,7 @@
 
         let date = new Date()
         let labels = []
-        for(let i = 0; i < 7; i++) {
+        for(let i = 0; i < 30; i++) {
             labels.push(getFormatDate(date).substr(5))
             date.setDate(date.getDate() - 1)
         }
@@ -61,7 +73,7 @@
                     label: '<%= user.nick %>',
                     backgroundColor: window.chartColors.blue,
                     borderColor: window.chartColors.blue,
-                    data: [0, 0, 0, 0, 0, 0, 0],
+                    data: [],
                     fill: false,
                     lineTension: 0
                 }]
@@ -108,7 +120,7 @@
                 dataType: "json",
                 data: JSON.stringify({
                     date: getFormatDate(new Date()),
-                    limit: 7
+                    limit: 30
                 }),
                 success: (data) => {
                     if(data.error) {
@@ -116,12 +128,16 @@
                         return
                     }
 
+                    config.data.datasets[0].data = []
+                    config.data.datasets[0].data.length = 30
+                    config.data.datasets[0].data.fill(0, 0, 30)
+
                     for(var i = 0; i < data.length; i++) {
-                        config.data.datasets[0].data[6 - i] = data[i].balance
+                        config.data.datasets[0].data[29 - i] = data[i].balance
                     }
 
-                    diff = config.data.datasets[0].data[6] - config.data.datasets[0].data[5]
-                    percent = (diff / config.data.datasets[0].data[5] * 100).toFixed(2)
+                    diff = config.data.datasets[0].data[29] - config.data.datasets[0].data[28]
+                    percent = (diff / config.data.datasets[0].data[28] * 100).toFixed(2)
                     $(".profit-diff").html(`<h4>전일대비 증감: ${diff} (${percent}%)</h4>`)
 
                     var ctx = document.getElementById('canvas').getContext('2d')
@@ -278,6 +294,9 @@
                 const reader = new FileReader()
                 reader.onload = () => {
                     const tick = JSON.parse(reader.result)
+                    if(tick.error)
+                        return
+                    
                     var exch = tick.code.substr(0, tick.code.indexOf("-"))
                     var code = tick.code.substr(tick.code.indexOf("-")+1)
                     var price = tick.trade_price
