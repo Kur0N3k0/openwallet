@@ -141,6 +141,3 @@ cron.schedule('0 0 0 * * *', async () => {
 })
 
 work()
-
-// console.log("wow")
-// getDeposit("I63Fhbxui4KGL5XXd4Zv27xWiNvr8BNlkHGGcehS", "c1MeK5E8hEBwWKck9wuuJ5aimlKp6XytqvKW462e").then(res => console.log(res))
